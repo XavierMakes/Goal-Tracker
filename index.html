@@ -675,7 +675,6 @@ function GoalTracker() {
         .bar-fill { transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-thumb { background: #33344a; border-radius: 4px; }
-        .wheel-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
       `}</style>
 
       {/* Top bar */}
@@ -1753,7 +1752,7 @@ function GoalModal({ initial, onSave, onClose }) {
       </Field>
       <div className="flex gap-3">
         <Field label="Target count" className="flex-1">
-          <ScrollWheel min={1} max={maxTarget} value={target} onChange={setTarget} />
+          <NumberDropdown min={1} max={maxTarget} value={target} onChange={setTarget} />
         </Field>
         <Field label="Cadence" className="flex-1">
           <select value={cadence} onChange={(e) => setCadence(e.target.value)} className="modal-input">
@@ -1765,7 +1764,7 @@ function GoalModal({ initial, onSave, onClose }) {
         </Field>
       </div>
       <Field label="Points on completion">
-        <ScrollWheel min={1} max={30} value={points} onChange={setPoints} suffix=" pts" />
+        <NumberDropdown min={1} max={30} value={points} onChange={setPoints} suffix=" pts" />
       </Field>
       <Field label="Color">
         <div className="flex gap-2 flex-wrap">
@@ -1880,7 +1879,7 @@ function RewardModal({ initial, categoryNames, onSave, onClose }) {
         />
       </Field>
       <Field label="Cost in points">
-        <ScrollWheel min={1} max={250} value={cost} onChange={setCost} suffix=" pts" />
+        <NumberDropdown min={1} max={250} value={cost} onChange={setCost} suffix=" pts" />
       </Field>
       <Field label="Category">
         <select value={category} onChange={(e) => setCategory(e.target.value)} className="modal-input">
@@ -1903,106 +1902,26 @@ function RewardModal({ initial, categoryNames, onSave, onClose }) {
   );
 }
 
-// ---------- Scroll Wheel ----------
-// An iOS-style vertical number picker. Renders min..max as a scrollable
-// list with snap points; the value centered in the highlight band is the
-// current value. Uses native scroll-snap so it feels right on touch
-// devices without any custom drag math.
-const WHEEL_ITEM_HEIGHT = 40;
-const WHEEL_VISIBLE_ITEMS = 5; // odd number so one sits dead center
-
-function ScrollWheel({ min, max, value, onChange, suffix = "" }) {
-  const containerRef = useRef(null);
-  const scrollTimeout = useRef(null);
+// ---------- Number Dropdown ----------
+// A compact <select>-based numeric picker for min..max. Replaces the
+// scroll-wheel picker with something that takes up a single input row
+// instead of several lines of vertical space.
+function NumberDropdown({ min, max, value, onChange, suffix = "" }) {
   const values = [];
   for (let i = min; i <= max; i++) values.push(i);
 
-  // padding so the first/last real values can still scroll to center
-  const padCount = Math.floor(WHEEL_VISIBLE_ITEMS / 2);
-
-  // keep the scroll position in sync with `value` when it changes from
-  // outside the wheel (e.g. switching cadence resets/clamps the target)
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const idx = values.indexOf(value);
-    if (idx === -1) return;
-    el.scrollTop = idx * WHEEL_ITEM_HEIGHT;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [min, max]);
-
-  const handleScroll = () => {
-    if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
-    scrollTimeout.current = setTimeout(() => {
-      const el = containerRef.current;
-      if (!el) return;
-      const idx = Math.round(el.scrollTop / WHEEL_ITEM_HEIGHT);
-      const clamped = Math.max(0, Math.min(values.length - 1, idx));
-      const newValue = values[clamped];
-      if (newValue !== undefined && newValue !== value) onChange(newValue);
-      // snap precisely in case the scroll settled slightly off
-      el.scrollTo({ top: clamped * WHEEL_ITEM_HEIGHT, behavior: "smooth" });
-    }, 100);
-  };
-
-  const jumpTo = (v) => {
-    const el = containerRef.current;
-    if (!el) return;
-    const idx = values.indexOf(v);
-    if (idx === -1) return;
-    el.scrollTo({ top: idx * WHEEL_ITEM_HEIGHT, behavior: "smooth" });
-    onChange(v);
-  };
-
   return (
-    <div className="relative" style={{ height: WHEEL_ITEM_HEIGHT * WHEEL_VISIBLE_ITEMS }}>
-      {/* center highlight band */}
-      <div
-        className="absolute left-0 right-0 pointer-events-none border-y-2 z-10"
-        style={{
-          top: WHEEL_ITEM_HEIGHT * padCount,
-          height: WHEEL_ITEM_HEIGHT,
-          borderColor: "#F2A93B",
-          background: "rgba(242,169,59,0.08)",
-        }}
-      />
-      {/* fade masks top/bottom so the wheel reads as receding into view */}
-      <div
-        className="absolute top-0 left-0 right-0 pointer-events-none z-20"
-        style={{ height: WHEEL_ITEM_HEIGHT * padCount, background: "linear-gradient(to bottom, #1A1B26, transparent)" }}
-      />
-      <div
-        className="absolute bottom-0 left-0 right-0 pointer-events-none z-20"
-        style={{ height: WHEEL_ITEM_HEIGHT * padCount, background: "linear-gradient(to top, #1A1B26, transparent)" }}
-      />
-      <div
-        ref={containerRef}
-        onScroll={handleScroll}
-        className="h-full overflow-y-scroll wheel-scroll"
-        style={{
-          scrollSnapType: "y mandatory",
-          scrollbarWidth: "none",
-          paddingTop: WHEEL_ITEM_HEIGHT * padCount,
-          paddingBottom: WHEEL_ITEM_HEIGHT * padCount,
-        }}
-      >
-        {values.map((v) => (
-          <div
-            key={v}
-            onClick={() => jumpTo(v)}
-            className="flex items-center justify-center font-bold tabular-nums cursor-pointer select-none transition-colors"
-            style={{
-              height: WHEEL_ITEM_HEIGHT,
-              scrollSnapAlign: "center",
-              fontSize: v === value ? 20 : 16,
-              color: v === value ? "#E8E6E1" : "#5c5d78",
-            }}
-          >
-            {v}{suffix}
-          </div>
-        ))}
-      </div>
-    </div>
+    <select
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value))}
+      className="modal-input"
+    >
+      {values.map((v) => (
+        <option key={v} value={v}>
+          {v}{suffix}
+        </option>
+      ))}
+    </select>
   );
 }
 
