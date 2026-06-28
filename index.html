@@ -1,0 +1,1927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>GoalTracker</title>
+
+<!-- iOS "Add to Home Screen" full-screen app behavior -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="GoalTracker" />
+<meta name="theme-color" content="#1A1B26" />
+
+<!-- Home screen icon: a simple amber trophy mark on dark charcoal, inlined as a data URI so the app needs no external image file -->
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='36' fill='%231A1B26'/%3E%3Cg transform='translate(38,38) scale(4.4)' fill='none' stroke='%23F2A93B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9H4.5a2.5 2.5 0 010-5H6'/%3E%3Cpath d='M18 9h1.5a2.5 2.5 0 000-5H18'/%3E%3Cpath d='M4 22h16'/%3E%3Cpath d='M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22'/%3E%3Cpath d='M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22'/%3E%3Cpath d='M18 2H6v7a6 6 0 0012 0V2z'/%3E%3C/g%3E%3C/svg%3E" />
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap" rel="stylesheet">
+
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #1A1B26;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    /* respect the iPhone's safe areas (notch / home indicator) when running full-screen */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  #root { min-height: 100vh; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+// ---------- inline icons (replaces lucide-react import for standalone use) ----------
+const { useState, useEffect, useCallback, useRef } = React;
+
+function Icon({ children, size = 16, color = "currentColor", strokeWidth = 2, style, className }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={style} className={className}>
+      {children}
+    </svg>
+  );
+}
+const Plus = (p) => <Icon {...p}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></Icon>;
+const Flame = (p) => <Icon {...p}><path d="M8.5 14.5A2.5 2.5 0 0011 17a2.5 2.5 0 002.5-2.5c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7.5 7.5 0 01-15 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z" /></Icon>;
+const Trophy = (p) => <Icon {...p}><path d="M6 9H4.5a2.5 2.5 0 010-5H6" /><path d="M18 9h1.5a2.5 2.5 0 000-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0012 0V2z" /></Icon>;
+const X = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></Icon>;
+const Check = (p) => <Icon {...p}><polyline points="20 6 9 17 4 12" /></Icon>;
+const Minus = (p) => <Icon {...p}><line x1="5" y1="12" x2="19" y2="12" /></Icon>;
+const Gift = (p) => <Icon {...p}><rect x="3" y="8" width="18" height="4" rx="1" /><path d="M12 8v13" /><path d="M19 12v7a2 2 0 01-2 2H7a2 2 0 01-2-2v-7" /><path d="M7.5 8a2.5 2.5 0 010-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 010 5" /></Icon>;
+const Target = (p) => <Icon {...p}><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></Icon>;
+const Sparkles = (p) => <Icon {...p}><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M5 17l.75 2.25L8 20l-2.25.75L5 23l-.75-2.25L2 20l2.25-.75L5 17z" /></Icon>;
+const Pencil = (p) => <Icon {...p}><path d="M17 3a2.85 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></Icon>;
+const Settings = (p) => <Icon {...p}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009.05 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9.05a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9c.21.43.59.74 1.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z" /></Icon>;
+const Footprints = (p) => <Icon {...p}><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 9c.03-1.5 1.2-2.7 1.6-3.5.4-.8.5-1.5 2.4-1.5s2 1.5 2 3-1 2.5-1 4.5.5 3 .5 4.5-1.5 2-2.5 2-2-1-2-2.5" /><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-4.62-.03-1.5-1.2-2.7-1.6-3.5-.4-.8-.5-1.5-2.4-1.5s-2 1.5-2 3 1 2.5 1 4.5-.5 3-.5 4.5 1.5 2 2.5 2 2-1 2-2.5" /></Icon>;
+const Star = (p) => <Icon {...p}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></Icon>;
+const Gem = (p) => <Icon {...p}><path d="M6 3h12l4 6-10 12L2 9z" /><path d="M11 3 8 9l4 12 4-12-3-6" /><path d="M2 9h20" /></Icon>;
+const Award = (p) => <Icon {...p}><circle cx="12" cy="8" r="6" /><path d="M15.5 13.5L17 22l-5-3-5 3 1.5-8.5" /></Icon>;
+const ChevronUp = (p) => <Icon {...p}><polyline points="18 15 12 9 6 15" /></Icon>;
+const ChevronDown = (p) => <Icon {...p}><polyline points="6 9 12 15 18 9" /></Icon>;
+
+// ---------- helpers ----------
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+// ---------- cycle helpers ----------
+// Returns the cycle length in milliseconds for a given cadence
+const CYCLE_MS = {
+  today: 24 * 60 * 60 * 1000,
+  "this week": 7 * 24 * 60 * 60 * 1000,
+  "this month": 30 * 24 * 60 * 60 * 1000,
+  "this year": 365 * 24 * 60 * 60 * 1000,
+};
+
+const cyclesElapsed = (anchor, cadence) => {
+  const len = CYCLE_MS[cadence] ?? CYCLE_MS["this week"];
+  return Math.floor((Date.now() - anchor) / len);
+};
+
+// Given a goal, roll its cycle forward as many times as needed, applying
+// streak increments/resets and bonus point payouts along the way.
+// Returns { goal, bonusPoints, bonusMessages: [], recapEntries: [] }
+const rollGoalCycles = (g) => {
+  let elapsed = cyclesElapsed(g.cycleAnchor ?? Date.now(), g.cadence);
+  if (elapsed <= 0) return { goal: g, bonusPoints: 0, bonusMessages: [], recapEntries: [] };
+
+  let working = { ...g };
+  let bonusPoints = 0;
+  const bonusMessages = [];
+  const recapEntries = [];
+  const len = CYCLE_MS[g.cadence] ?? CYCLE_MS["this week"];
+
+  for (let i = 0; i < elapsed; i++) {
+    const met = working.progress >= working.target;
+    let cycleBonusPoints = 0;
+    let bonusLabel = null;
+    if (met) {
+      const newStreak = (working.streak ?? 0) + 1;
+      working.streak = newStreak;
+      working.bestStreak = Math.max(working.bestStreak ?? 0, newStreak);
+
+      // check tier unlocks for this new streak length
+      const tiers = working.tiers ?? [];
+      const claimed = working.claimedTiers ?? [];
+      tiers.forEach((tier) => {
+        if (tier.streakLength === newStreak && !claimed.includes(tier.streakLength)) {
+          if (tier.bonusPoints) {
+            bonusPoints += tier.bonusPoints;
+            cycleBonusPoints += tier.bonusPoints;
+          }
+          bonusLabel = tier.rewardName || null;
+          bonusMessages.push(
+            `${working.name}: ${newStreak}x streak${tier.rewardName ? ` — unlocked "${tier.rewardName}"` : ""}${tier.bonusPoints ? ` (+${tier.bonusPoints} pts)` : ""}`
+          );
+          working.claimedTiers = [...claimed, tier.streakLength];
+        }
+      });
+    } else {
+      working.streak = 0;
+      working.claimedTiers = [];
+    }
+    // the cycle that just ended started at this anchor point in time
+    const cycleEndedAt = (g.cycleAnchor ?? Date.now()) + (i + 1) * len;
+    recapEntries.push({
+      id: uid(),
+      goalId: g.id,
+      goalName: working.name,
+      cadence: g.cadence,
+      met,
+      pointsEarned: met ? working.points : 0,
+      bonusPoints: cycleBonusPoints,
+      bonusLabel,
+      streakAfter: working.streak,
+      endedAt: cycleEndedAt,
+    });
+    working.progress = 0;
+    working.pointsAwarded = false;
+  }
+  working.cycleAnchor = (g.cycleAnchor ?? Date.now()) + elapsed * len;
+  return { goal: working, bonusPoints, bonusMessages, recapEntries };
+};
+
+const COLORS = [
+  { name: "amber", bar: "#F2A93B", glow: "rgba(242,169,59,0.55)" },
+  { name: "teal", bar: "#5FB3A3", glow: "rgba(95,179,163,0.55)" },
+  { name: "rose", bar: "#D97B6C", glow: "rgba(217,123,108,0.55)" },
+  { name: "violet", bar: "#9B8AD4", glow: "rgba(155,138,212,0.55)" },
+  { name: "sky", bar: "#5BA8D9", glow: "rgba(91,168,217,0.55)" },
+  { name: "lime", bar: "#A8C95F", glow: "rgba(168,201,95,0.55)" },
+  { name: "magenta", bar: "#D66FA6", glow: "rgba(214,111,166,0.55)" },
+  { name: "coral", bar: "#E08A4B", glow: "rgba(224,138,75,0.55)" },
+];
+
+const DEFAULT_GOALS = [
+  {
+    id: uid(),
+    name: "Workout",
+    target: 3,
+    progress: 2,
+    points: 5,
+    color: 0,
+    cadence: "this week",
+    streak: 2,
+    bestStreak: 2,
+    cycleAnchor: Date.now(),
+    tiers: [{ id: uid(), streakLength: 4, bonusPoints: 20, rewardName: "Movie night" }],
+    claimedTiers: [],
+    pointsAwarded: false,
+  },
+  {
+    id: uid(),
+    name: "Floss every night",
+    target: 7,
+    progress: 5,
+    points: 2,
+    color: 1,
+    cadence: "this week",
+    streak: 0,
+    bestStreak: 0,
+    cycleAnchor: Date.now(),
+    tiers: [],
+    claimedTiers: [],
+    pointsAwarded: false,
+  },
+];
+
+// Stable keys for the 3 reward categories — the keys never change, only
+// their display names (editable in Settings) and the goal/reward data
+// stored elsewhere always references the key, not the name.
+const REWARD_CATEGORY_KEYS = ["category1", "category2", "category3"];
+const DEFAULT_CATEGORY_NAMES = {
+  category1: "Small Treat",
+  category2: "Mid-Size Reward",
+  category3: "Big Splurge",
+};
+
+const DEFAULT_REWARDS = [
+  { id: uid(), name: "Takeout night", cost: 15, category: "category1" },
+  { id: uid(), name: "New game / movie rental", cost: 30, category: "category2" },
+  { id: uid(), name: "Hour of guilt-free gaming", cost: 8, category: "category1" },
+];
+
+const DEFAULT_SETTINGS = {
+  showWeekly: true,
+  showMonthly: true,
+  showYearly: true,
+  categoryNames: DEFAULT_CATEGORY_NAMES,
+};
+
+// Lifetime counters used to evaluate badge unlocks. These only ever
+// increase (or, for maxStreak/maxBalance, track a running peak), so a
+// badge once earned can never be lost.
+const DEFAULT_STATS = {
+  totalGoalsCompleted: 0,
+  totalRewardsRedeemed: 0,
+  maxStreakEverReached: 0,
+  maxBalanceEverReached: 0,
+  perfectWeeksCount: 0,
+};
+
+// Each badge has a stable id, display info, and a check against the
+// lifetime stats object. Order here is also display order.
+const BADGE_DEFINITIONS = [
+  {
+    id: "first_steps",
+    name: "First Steps",
+    description: "Complete your very first goal",
+    icon: "Footprints",
+    check: (s) => s.totalGoalsCompleted >= 1,
+  },
+  {
+    id: "perfect_week",
+    name: "Perfect Week",
+    description: "Complete every weekly goal in the same week",
+    icon: "Star",
+    check: (s) => s.perfectWeeksCount >= 1,
+  },
+  {
+    id: "on_a_roll",
+    name: "On a Roll",
+    description: "Reach a 4x streak on any goal",
+    icon: "Flame",
+    check: (s) => s.maxStreakEverReached >= 4,
+  },
+  {
+    id: "first_redeem",
+    name: "Big Spender",
+    description: "Redeem your first reward",
+    icon: "Gift",
+    check: (s) => s.totalRewardsRedeemed >= 1,
+  },
+  {
+    id: "treasure_hoarder",
+    name: "Treasure Hoarder",
+    description: "Hold a balance of 50 points at once",
+    icon: "Gem",
+    check: (s) => s.maxBalanceEverReached >= 50,
+  },
+  {
+    id: "dedicated",
+    name: "Dedicated",
+    description: "Complete 5 goals total",
+    icon: "Award",
+    check: (s) => s.totalGoalsCompleted >= 5,
+  },
+];
+
+const STORAGE_KEY = "goal-tracker-state-v1";
+
+// Maps badge icon names to their lucide components for rendering.
+const BADGE_ICONS = { Footprints, Star, Flame, Gift, Gem, Award };
+
+function GoalTracker() {
+  const [view, setView] = useState("goals"); // "goals" | "rewards" | "recap" | "settings"
+  const [goals, setGoals] = useState(null);
+  const [rewards, setRewards] = useState(null);
+  const [balance, setBalance] = useState(0);
+  const [history, setHistory] = useState([]);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [stats, setStats] = useState(DEFAULT_STATS);
+  const [unlockedBadges, setUnlockedBadges] = useState([]); // array of badge ids
+  const [recapHistory, setRecapHistory] = useState([]); // array of completed-cycle entries
+  const [loaded, setLoaded] = useState(false);
+  const [editingGoal, setEditingGoal] = useState(null); // null | "new" | goal object
+  const [editingReward, setEditingReward] = useState(null); // null | "new" | reward object
+  const [toast, setToast] = useState(null);
+  const [bump, setBump] = useState(false);
+
+  // ---------- load ----------
+  useEffect(() => {
+    (async () => {
+      try {
+        const rawValue = localStorage.getItem(STORAGE_KEY);
+        const res = rawValue ? { value: rawValue } : null;
+        if (res && res.value) {
+          const data = JSON.parse(res.value);
+          const loadedBalance = data.balance ?? 0;
+          setGoals(data.goals ?? DEFAULT_GOALS);
+          setRewards(data.rewards ?? DEFAULT_REWARDS);
+          setBalance(loadedBalance);
+          setHistory(data.history ?? []);
+          // merge with defaults so future settings additions have a fallback;
+          // categoryNames needs a nested merge so new category keys always
+          // get a default name even if the saved settings predate them
+          const savedSettings = data.settings ?? {};
+          setSettings({
+            ...DEFAULT_SETTINGS,
+            ...savedSettings,
+            categoryNames: { ...DEFAULT_CATEGORY_NAMES, ...(savedSettings.categoryNames ?? {}) },
+          });
+          // fall back to current balance for older saves that predate stat tracking
+          setStats({
+            ...DEFAULT_STATS,
+            ...(data.stats ?? {}),
+            maxBalanceEverReached: Math.max(data.stats?.maxBalanceEverReached ?? 0, loadedBalance),
+          });
+          setUnlockedBadges(data.unlockedBadges ?? []);
+          setRecapHistory(data.recapHistory ?? []);
+        } else {
+          setGoals(DEFAULT_GOALS);
+          setRewards(DEFAULT_REWARDS);
+          setBalance(0);
+          setHistory([]);
+          setSettings(DEFAULT_SETTINGS);
+          setStats(DEFAULT_STATS);
+          setUnlockedBadges([]);
+          setRecapHistory([]);
+        }
+      } catch {
+        setGoals(DEFAULT_GOALS);
+        setRewards(DEFAULT_REWARDS);
+        setBalance(0);
+        setHistory([]);
+        setSettings(DEFAULT_SETTINGS);
+        setStats(DEFAULT_STATS);
+        setUnlockedBadges([]);
+        setRecapHistory([]);
+      }
+      setLoaded(true);
+    })();
+  }, []);
+
+  // ---------- save (debounced-ish via effect) ----------
+  useEffect(() => {
+    if (!loaded) return;
+    const save = async () => {
+      try {
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({ goals, rewards, balance, history, settings, stats, unlockedBadges, recapHistory })
+        );
+      } catch {
+        // ignore storage errors, app still works in-memory
+      }
+    };
+    save();
+  }, [goals, rewards, balance, history, settings, stats, unlockedBadges, recapHistory, loaded]);
+
+  const flashToast = useCallback((msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2200);
+  }, []);
+
+  const bumpBalance = useCallback(() => {
+    setBump(true);
+    setTimeout(() => setBump(false), 350);
+  }, []);
+
+  // ---------- cycle rollover check (streaks, resets, bonus payouts) ----------
+  const checkCycles = useCallback(() => {
+    setGoals((gs) => {
+      let totalBonus = 0;
+      const messages = [];
+      const allRecapEntries = [];
+      const next = gs.map((g) => {
+        const { goal, bonusPoints, bonusMessages, recapEntries } = rollGoalCycles(g);
+        totalBonus += bonusPoints;
+        messages.push(...bonusMessages);
+        allRecapEntries.push(...recapEntries);
+        return goal;
+      });
+      if (allRecapEntries.length > 0) {
+        setRecapHistory((rh) => [...rh, ...allRecapEntries].slice(-200));
+      }
+      if (totalBonus > 0) {
+        setBalance((b) => {
+          const newBalance = b + totalBonus;
+          setStats((s) => ({ ...s, maxBalanceEverReached: Math.max(s.maxBalanceEverReached, newBalance) }));
+          return newBalance;
+        });
+        bumpBalance();
+      }
+      if (messages.length > 0) {
+        flashToast(messages[0] + (messages.length > 1 ? ` (+${messages.length - 1} more)` : ""));
+      }
+      const highestStreak = next.reduce((max, g) => Math.max(max, g.streak ?? 0), 0);
+      if (highestStreak > 0) {
+        setStats((s) => ({ ...s, maxStreakEverReached: Math.max(s.maxStreakEverReached, highestStreak) }));
+      }
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flashToast, bumpBalance]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    checkCycles();
+    const interval = setInterval(checkCycles, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [loaded, checkCycles]);
+
+  // ---------- badge unlock check ----------
+  // Runs whenever lifetime stats change; unlocks any badge whose condition
+  // is newly met. Badges never re-lock since stats only ever climb.
+  useEffect(() => {
+    if (!loaded) return;
+    const newlyUnlocked = BADGE_DEFINITIONS.filter(
+      (b) => !unlockedBadges.includes(b.id) && b.check(stats)
+    );
+    if (newlyUnlocked.length > 0) {
+      setUnlockedBadges((prev) => [...prev, ...newlyUnlocked.map((b) => b.id)]);
+      flashToast(`Badge unlocked: ${newlyUnlocked[0].name}${newlyUnlocked.length > 1 ? ` (+${newlyUnlocked.length - 1} more)` : ""}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stats, loaded]);
+
+  // ---------- goal actions ----------
+  const incrementGoal = (id) => {
+    let justCompletedGoal = false;
+    setGoals((gs) => {
+      const next = gs.map((g) => {
+        if (g.id !== id) return g;
+        if (g.progress >= g.target) return g;
+        const newProgress = g.progress + 1;
+        if (newProgress >= g.target && !g.pointsAwarded) {
+          setBalance((b) => {
+            const newBalance = b + g.points;
+            setStats((s) => ({ ...s, maxBalanceEverReached: Math.max(s.maxBalanceEverReached, newBalance) }));
+            return newBalance;
+          });
+          bumpBalance();
+          flashToast(`Goal complete — +${g.points} pts`);
+          justCompletedGoal = true;
+          return { ...g, progress: newProgress, pointsAwarded: true };
+        }
+        return { ...g, progress: newProgress };
+      });
+
+      if (justCompletedGoal) {
+        // check whether this completion made every weekly/daily goal in
+        // the list complete at once — that's a "perfect week"
+        const weeklyGoals = next.filter((g) => g.cadence === "this week" || g.cadence === "today");
+        const allWeeklyDone = weeklyGoals.length > 0 && weeklyGoals.every((g) => g.progress >= g.target);
+        setStats((s) => ({
+          ...s,
+          totalGoalsCompleted: s.totalGoalsCompleted + 1,
+          perfectWeeksCount: allWeeklyDone ? s.perfectWeeksCount + 1 : s.perfectWeeksCount,
+        }));
+      }
+
+      return next;
+    });
+  };
+
+  const decrementGoal = (id) => {
+    setGoals((gs) =>
+      gs.map((g) => {
+        if (g.id !== id || g.progress <= 0) return g;
+        const newProgress = g.progress - 1;
+        if (newProgress < g.target && g.pointsAwarded) {
+          setBalance((b) => Math.max(0, b - g.points));
+          flashToast(`Dropped below target — -${g.points} pts`);
+          return { ...g, progress: newProgress, pointsAwarded: false };
+        }
+        return { ...g, progress: newProgress };
+      })
+    );
+  };
+
+  const resetGoal = (id) => {
+    setGoals((gs) =>
+      gs.map((g) => {
+        if (g.id !== id) return g;
+        if (g.pointsAwarded) {
+          setBalance((b) => Math.max(0, b - g.points));
+          flashToast(`Reset — -${g.points} pts`);
+        }
+        return { ...g, progress: 0, pointsAwarded: false };
+      })
+    );
+  };
+
+  const deleteGoal = (id) => {
+    setGoals((gs) => gs.filter((g) => g.id !== id));
+  };
+
+  // Moves a goal up or down within the full goals array, but determines
+  // "adjacent" using visibleIds — the order currently shown on screen
+  // under whatever filter is active. This way reordering within a
+  // filtered view (e.g. "Weekly") only swaps with the actual neighbor
+  // visible in that view, not whatever happens to sit next in the array.
+  const moveGoal = (id, direction, visibleIds) => {
+    const idx = visibleIds.indexOf(id);
+    if (idx === -1) return;
+    const swapWithIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (swapWithIdx < 0 || swapWithIdx >= visibleIds.length) return;
+    const swapWithId = visibleIds[swapWithIdx];
+
+    setGoals((gs) => {
+      const next = [...gs];
+      const a = next.findIndex((g) => g.id === id);
+      const b = next.findIndex((g) => g.id === swapWithId);
+      if (a === -1 || b === -1) return gs;
+      [next[a], next[b]] = [next[b], next[a]];
+      return next;
+    });
+  };
+
+  const saveGoal = (goal) => {
+    if (goal.id) {
+      // editing existing goal — preserve progress/streak, clamp progress to new target
+      setGoals((gs) =>
+        gs.map((g) => {
+          if (g.id !== goal.id) return g;
+          const newProgress = Math.min(g.progress, goal.target);
+          const stillQualifies = newProgress >= goal.target;
+          // if points were already awarded but the edited goal no longer qualifies
+          // (e.g. target raised above current progress), claw back those points
+          if (g.pointsAwarded && !stillQualifies) {
+            setBalance((b) => Math.max(0, b - g.points));
+          }
+          return {
+            ...g,
+            ...goal,
+            progress: newProgress,
+            pointsAwarded: g.pointsAwarded && stillQualifies,
+          };
+        })
+      );
+    } else {
+      setGoals((gs) => [
+        ...gs,
+        {
+          ...goal,
+          id: uid(),
+          progress: 0,
+          streak: 0,
+          bestStreak: 0,
+          cycleAnchor: Date.now(),
+          claimedTiers: [],
+          pointsAwarded: false,
+        },
+      ]);
+    }
+    setEditingGoal(null);
+  };
+
+  // ---------- reward actions ----------
+  const redeem = (reward) => {
+    if (balance < reward.cost) {
+      flashToast("Not enough points yet");
+      return;
+    }
+    setBalance((b) => b - reward.cost);
+    bumpBalance();
+    setHistory((h) => [{ id: uid(), name: reward.name, cost: reward.cost, date: Date.now() }, ...h].slice(0, 20));
+    setStats((s) => ({ ...s, totalRewardsRedeemed: s.totalRewardsRedeemed + 1 }));
+    flashToast(`Redeemed: ${reward.name}`);
+  };
+
+  const saveReward = (reward) => {
+    if (reward.id) {
+      setRewards((rs) => rs.map((r) => (r.id === reward.id ? { ...r, ...reward } : r)));
+    } else {
+      setRewards((rs) => [...rs, { ...reward, id: uid() }]);
+    }
+    setEditingReward(null);
+  };
+
+  const deleteReward = (id) => {
+    setRewards((rs) => rs.filter((r) => r.id !== id));
+  };
+
+  // Moves a reward up or down within the full rewards array, using
+  // visibleIds (the order shown within its category group) to determine
+  // the actual neighbor to swap with.
+  const moveReward = (id, direction, visibleIds) => {
+    const idx = visibleIds.indexOf(id);
+    if (idx === -1) return;
+    const swapWithIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (swapWithIdx < 0 || swapWithIdx >= visibleIds.length) return;
+    const swapWithId = visibleIds[swapWithIdx];
+
+    setRewards((rs) => {
+      const next = [...rs];
+      const a = next.findIndex((r) => r.id === id);
+      const b = next.findIndex((r) => r.id === swapWithId);
+      if (a === -1 || b === -1) return rs;
+      [next[a], next[b]] = [next[b], next[a]];
+      return next;
+    });
+  };
+
+  if (!loaded || !goals || !rewards) {
+    return (
+      <div className="w-full h-full min-h-screen flex items-center justify-center bg-[#1A1B26]">
+        <div className="text-[#E8E6E1] font-sans text-sm tracking-wide opacity-60">Loading…</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full min-h-screen bg-[#1A1B26] text-[#E8E6E1] font-sans flex flex-col items-center">
+      <style>{`
+        @keyframes fillGrow { from { width: 0%; } }
+        @keyframes popIn { 0% { transform: scale(0.85); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes bounceOnce { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+        @keyframes slideUp { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .anim-pop { animation: popIn 0.25s ease-out; }
+        .anim-bounce { animation: bounceOnce 0.35s ease-out; }
+        .anim-slideup { animation: slideUp 0.3s ease-out; }
+        .bar-fill { transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-thumb { background: #33344a; border-radius: 4px; }
+      `}</style>
+
+      {/* Top bar */}
+      <div className="w-full max-w-2xl px-5 pt-7 pb-4 flex items-center justify-between">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.18em] text-[#8B8A9E] font-semibold">Streak System</div>
+          <h1 className="text-2xl font-extrabold tracking-tight" style={{ fontFamily: "'Archivo Black', sans-serif" }}>
+            Goal<span style={{ color: "#F2A93B" }}>Tracker</span>
+          </h1>
+        </div>
+        <div
+          className={`flex items-center gap-2 bg-[#23243A] border border-[#33344a] rounded-2xl px-4 py-2 ${bump ? "anim-bounce" : ""}`}
+        >
+          <Trophy size={18} color="#F2A93B" />
+          <span className="text-lg font-bold tabular-nums" style={{ fontFamily: "'Archivo Black', sans-serif" }}>
+            {balance}
+          </span>
+          <span className="text-xs text-[#8B8A9E] font-medium">pts</span>
+        </div>
+      </div>
+
+      {/* Overall progress */}
+      <div className="w-full max-w-2xl px-5 pb-4">
+        <OverallProgress goals={goals} settings={settings} />
+      </div>
+
+      {/* Tabs */}
+      <div className="w-full max-w-2xl px-5 flex gap-2 mb-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+        <TabButton active={view === "goals"} onClick={() => setView("goals")} icon={<Target size={15} />} label="Goals" />
+        <TabButton active={view === "rewards"} onClick={() => setView("rewards")} icon={<Gift size={15} />} label="Rewards" />
+        <TabButton active={view === "recap"} onClick={() => setView("recap")} icon={<Star size={15} />} label="Recap" />
+        <TabButton active={view === "settings"} onClick={() => setView("settings")} icon={<Settings size={15} />} label="Settings" />
+      </div>
+
+      {/* Content */}
+      <div className="w-full max-w-2xl px-5 pb-28 flex-1">
+        {view === "goals" && (
+          <GoalsView
+            goals={goals}
+            settings={settings}
+            onIncrement={incrementGoal}
+            onDecrement={decrementGoal}
+            onReset={resetGoal}
+            onDelete={deleteGoal}
+            onEdit={(g) => setEditingGoal(g)}
+            onMove={moveGoal}
+            onAddClick={() => setEditingGoal("new")}
+          />
+        )}
+        {view === "rewards" && (
+          <RewardsView
+            balance={balance}
+            rewards={rewards}
+            history={history}
+            categoryNames={settings.categoryNames}
+            unlockedBadges={unlockedBadges}
+            onRedeem={redeem}
+            onDelete={deleteReward}
+            onEdit={(r) => setEditingReward(r)}
+            onMove={moveReward}
+            onAddClick={() => setEditingReward("new")}
+          />
+        )}
+        {view === "recap" && <RecapView goals={goals} recapHistory={recapHistory} />}
+        {view === "settings" && (
+          <SettingsView settings={settings} onChange={(patch) => setSettings((s) => ({ ...s, ...patch }))} />
+        )}
+      </div>
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#23243A] border border-[#3a3c5c] text-[#E8E6E1] px-4 py-2.5 rounded-xl text-sm font-medium shadow-xl anim-slideup flex items-center gap-2 z-50">
+          <Sparkles size={14} color="#F2A93B" />
+          {toast}
+        </div>
+      )}
+
+      {/* Modals */}
+      {editingGoal && (
+        <GoalModal
+          initial={editingGoal === "new" ? null : editingGoal}
+          onSave={saveGoal}
+          onClose={() => setEditingGoal(null)}
+        />
+      )}
+      {editingReward && (
+        <RewardModal
+          initial={editingReward === "new" ? null : editingReward}
+          categoryNames={settings.categoryNames}
+          onSave={saveReward}
+          onClose={() => setEditingReward(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------- Overall Progress (weekly + monthly) ----------
+function OverallProgress({ goals, settings }) {
+  // "today" goals are sub-weekly, so they count toward the weekly rollup too
+  const weeklyGoals = goals.filter((g) => g.cadence === "this week" || g.cadence === "today");
+  const monthlyGoals = goals.filter((g) => g.cadence === "this month");
+  const yearlyGoals = goals.filter((g) => g.cadence === "this year");
+
+  const weeklyDone = weeklyGoals.filter((g) => g.progress >= g.target).length;
+  const monthlyDone = monthlyGoals.filter((g) => g.progress >= g.target).length;
+  const yearlyDone = yearlyGoals.filter((g) => g.progress >= g.target).length;
+
+  const weeklyPct = weeklyGoals.length > 0 ? Math.round((weeklyDone / weeklyGoals.length) * 100) : 0;
+  const monthlyPct = monthlyGoals.length > 0 ? Math.round((monthlyDone / monthlyGoals.length) * 100) : 0;
+  const yearlyPct = yearlyGoals.length > 0 ? Math.round((yearlyDone / yearlyGoals.length) * 100) : 0;
+
+  const showWeekly = settings?.showWeekly ?? true;
+  const showMonthly = settings?.showMonthly ?? true;
+  const showYearly = settings?.showYearly ?? true;
+
+  if (!showWeekly && !showMonthly && !showYearly) return null;
+
+  return (
+    <div className="flex flex-col gap-3">
+      {showWeekly && (
+        <ProgressRow
+          label="Progress towards weekly goals"
+          done={weeklyDone}
+          total={weeklyGoals.length}
+          pct={weeklyPct}
+          color="#F2A93B"
+          glow="rgba(242,169,59,0.5)"
+        />
+      )}
+      {showMonthly && (
+        <ProgressRow
+          label="Progress towards monthly goals"
+          done={monthlyDone}
+          total={monthlyGoals.length}
+          pct={monthlyPct}
+          color="#5FB3A3"
+          glow="rgba(95,179,163,0.5)"
+        />
+      )}
+      {showYearly && (
+        <ProgressRow
+          label="Progress towards yearly goals"
+          done={yearlyDone}
+          total={yearlyGoals.length}
+          pct={yearlyPct}
+          color="#9B8AD4"
+          glow="rgba(155,138,212,0.5)"
+        />
+      )}
+    </div>
+  );
+}
+
+function ProgressRow({ label, done, total, pct, color, glow }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[11px] uppercase tracking-[0.14em] text-[#8B8A9E] font-semibold">{label}</span>
+        <span className="text-[11px] text-[#8B8A9E] font-medium tabular-nums">
+          {total > 0 ? `${done} / ${total} goals` : "No goals set"}
+        </span>
+      </div>
+      <div className="relative h-4 bg-[#23243A] rounded-full overflow-hidden border border-[#33344a]">
+        <div
+          className="bar-fill h-full rounded-full"
+          style={{
+            width: `${pct}%`,
+            background: `linear-gradient(90deg, ${color}99, ${color})`,
+            boxShadow: pct > 0 ? `0 0 10px ${glow}` : "none",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ---------- Tab Button ----------
+function TabButton({ active, onClick, icon, label }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex-shrink-0 whitespace-nowrap"
+      style={{
+        background: active ? "#F2A93B" : "transparent",
+        color: active ? "#1A1B26" : "#8B8A9E",
+      }}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+// ---------- Goals View ----------
+function GoalsView({ goals, settings, onIncrement, onDecrement, onReset, onDelete, onEdit, onMove, onAddClick }) {
+  const [filter, setFilter] = useState("all"); // "all" | "weekly" | "monthly" | "yearly"
+
+  const showWeekly = settings?.showWeekly ?? true;
+  const showMonthly = settings?.showMonthly ?? true;
+  const showYearly = settings?.showYearly ?? true;
+
+  // exclude goals whose cadence group is turned off in settings entirely
+  const visibleGoals = goals.filter((g) => {
+    if ((g.cadence === "this week" || g.cadence === "today") && !showWeekly) return false;
+    if (g.cadence === "this month" && !showMonthly) return false;
+    if (g.cadence === "this year" && !showYearly) return false;
+    return true;
+  });
+
+  // if the active filter points at a cadence that's now hidden, fall back to "all"
+  useEffect(() => {
+    if (filter === "weekly" && !showWeekly) setFilter("all");
+    if (filter === "monthly" && !showMonthly) setFilter("all");
+    if (filter === "yearly" && !showYearly) setFilter("all");
+  }, [filter, showWeekly, showMonthly, showYearly]);
+
+  const filteredGoals = visibleGoals.filter((g) => {
+    if (filter === "all") return true;
+    if (filter === "weekly") return g.cadence === "this week" || g.cadence === "today";
+    if (filter === "monthly") return g.cadence === "this month";
+    if (filter === "yearly") return g.cadence === "this year";
+    return true;
+  });
+
+  // the order goals appear on screen right now, under the active filter —
+  // this is what "up"/"down" actually means from the user's perspective
+  const visibleIds = filteredGoals.map((g) => g.id);
+
+  const emptyFilterSubtitle = {
+    weekly: "weekly or daily",
+    monthly: "monthly",
+    yearly: "yearly",
+  }[filter];
+
+  return (
+    <div className="flex flex-col gap-3 pt-2">
+      <div className="flex gap-1.5 mb-1 flex-wrap">
+        <FilterPill active={filter === "all"} onClick={() => setFilter("all")} label="All" />
+        {showWeekly && <FilterPill active={filter === "weekly"} onClick={() => setFilter("weekly")} label="Weekly" />}
+        {showMonthly && <FilterPill active={filter === "monthly"} onClick={() => setFilter("monthly")} label="Monthly" />}
+        {showYearly && <FilterPill active={filter === "yearly"} onClick={() => setFilter("yearly")} label="Yearly" />}
+      </div>
+
+      {visibleGoals.length === 0 && (
+        <EmptyState
+          title="No goals yet"
+          subtitle={
+            goals.length > visibleGoals.length
+              ? "All your goals are hidden by a Settings toggle right now. Adjust Settings to bring them back."
+              : "Add a weekly goal — a workout count, a daily habit, anything you want to build a streak on."
+          }
+        />
+      )}
+      {visibleGoals.length > 0 && filteredGoals.length === 0 && (
+        <EmptyState
+          title={`No ${filter} goals`}
+          subtitle={`You don't have any ${emptyFilterSubtitle} goals set yet.`}
+        />
+      )}
+      {filteredGoals.map((g, idx) => (
+        <GoalCard
+          key={g.id}
+          goal={g}
+          onIncrement={() => onIncrement(g.id)}
+          onDecrement={() => onDecrement(g.id)}
+          onReset={() => onReset(g.id)}
+          onDelete={() => onDelete(g.id)}
+          onEdit={() => onEdit(g)}
+          onMoveUp={idx > 0 ? () => onMove(g.id, "up", visibleIds) : null}
+          onMoveDown={idx < filteredGoals.length - 1 ? () => onMove(g.id, "down", visibleIds) : null}
+        />
+      ))}
+      <button
+        onClick={onAddClick}
+        className="mt-2 flex items-center justify-center gap-2 border border-dashed border-[#3a3c5c] rounded-2xl py-4 text-sm font-semibold text-[#8B8A9E] hover:text-[#E8E6E1] hover:border-[#F2A93B] transition-colors"
+      >
+        <Plus size={16} />
+        New goal
+      </button>
+    </div>
+  );
+}
+
+function FilterPill({ active, onClick, label }) {
+  return (
+    <button
+      onClick={onClick}
+      className="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border"
+      style={{
+        background: active ? "#F2A93B" : "transparent",
+        color: active ? "#1A1B26" : "#8B8A9E",
+        borderColor: active ? "#F2A93B" : "#33344a",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function GoalCard({ goal, onIncrement, onDecrement, onReset, onDelete, onEdit, onMoveUp, onMoveDown }) {
+  const pct = Math.min(100, Math.round((goal.progress / goal.target) * 100));
+  const isComplete = goal.progress >= goal.target;
+  const c = COLORS[goal.color % COLORS.length];
+  const streak = goal.streak ?? 0;
+  const tiers = (goal.tiers ?? []).slice().sort((a, b) => a.streakLength - b.streakLength);
+  const claimed = goal.claimedTiers ?? [];
+  const nextTier = tiers.find((t) => !claimed.includes(t.streakLength) && t.streakLength > streak) 
+    ?? tiers.find((t) => !claimed.includes(t.streakLength));
+
+  return (
+    <div className="flex gap-1.5 anim-pop">
+      <div className="flex flex-col gap-0.5 justify-center flex-shrink-0">
+        <button
+          onClick={onMoveUp}
+          disabled={!onMoveUp}
+          className="w-6 h-6 flex items-center justify-center rounded-md text-[#5c5d78] disabled:opacity-20 hover:text-[#F2A93B] transition-colors"
+        >
+          <ChevronUp size={15} />
+        </button>
+        <button
+          onClick={onMoveDown}
+          disabled={!onMoveDown}
+          className="w-6 h-6 flex items-center justify-center rounded-md text-[#5c5d78] disabled:opacity-20 hover:text-[#F2A93B] transition-colors"
+        >
+          <ChevronDown size={15} />
+        </button>
+      </div>
+
+      <div className="flex-1 bg-[#23243A] border border-[#33344a] rounded-2xl p-4 relative overflow-hidden">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <div className="flex items-center gap-1.5">
+            <h3 className="font-bold text-base leading-tight">{goal.name}</h3>
+            {isComplete && <Check size={15} color="#5FB3A3" strokeWidth={3} />}
+          </div>
+          <div className="text-[11px] text-[#8B8A9E] font-medium uppercase tracking-wide mt-0.5">
+            {goal.cadence} · {goal.points} pt{goal.points !== 1 ? "s" : ""} on completion
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          {streak > 0 && (
+            <div className="flex items-center gap-1 bg-[#1A1B26] border border-[#33344a] rounded-lg px-2 py-1 mr-1">
+              <Flame size={13} color="#F2A93B" />
+              <span className="text-xs font-bold tabular-nums">{streak}</span>
+            </div>
+          )}
+          <button onClick={onEdit} className="text-[#5c5d78] hover:text-[#F2A93B] transition-colors p-1">
+            <Pencil size={14} />
+          </button>
+          <button onClick={onDelete} className="text-[#5c5d78] hover:text-[#D97B6C] transition-colors p-1">
+            <X size={15} />
+          </button>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="relative h-7 bg-[#1A1B26] rounded-full overflow-hidden border border-[#33344a]">
+        <div
+          className="bar-fill h-full rounded-full relative"
+          style={{
+            width: `${pct}%`,
+            background: `linear-gradient(90deg, ${c.bar}99, ${c.bar})`,
+            boxShadow: pct > 0 ? `0 0 14px ${c.glow}` : "none",
+          }}
+        >
+          {pct > 12 && (
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] font-bold text-[#1A1B26]">
+              {goal.progress}/{goal.target}
+            </span>
+          )}
+        </div>
+        {pct <= 12 && (
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-[#8B8A9E]">
+            {goal.progress}/{goal.target}
+          </span>
+        )}
+      </div>
+
+      {nextTier && (
+        <div className="flex items-center gap-1.5 mt-2 text-[11px] text-[#8B8A9E] font-medium">
+          <Trophy size={11} color="#F2A93B" />
+          <span>
+            {streak}/{nextTier.streakLength} streak for{nextTier.rewardName ? ` "${nextTier.rewardName}"` : ""}
+            {nextTier.bonusPoints ? ` +${nextTier.bonusPoints} pts` : ""}
+          </span>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 mt-3">
+        <button
+          onClick={onDecrement}
+          disabled={goal.progress <= 0}
+          className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1A1B26] border border-[#33344a] text-[#8B8A9E] disabled:opacity-30 hover:border-[#5c5d78] transition-colors"
+        >
+          <Minus size={14} />
+        </button>
+        <button
+          onClick={onIncrement}
+          disabled={isComplete}
+          className="flex-1 h-8 flex items-center justify-center gap-1.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+          style={{ background: isComplete ? "#1A1B26" : c.bar, color: isComplete ? "#8B8A9E" : "#1A1B26" }}
+        >
+          {isComplete ? "Complete" : "Log progress"} {!isComplete && <Plus size={14} />}
+        </button>
+        <button
+          onClick={onReset}
+          className="text-[11px] text-[#5c5d78] hover:text-[#8B8A9E] font-medium px-2 transition-colors"
+        >
+          Reset
+        </button>
+      </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Gold Pile ----------
+// Deterministic pseudo-random number between 0 and 1, seeded by an
+// integer, so coin placement stays stable across re-renders.
+const seededRandom = (seed) => {
+  const x = Math.sin(seed * 9301 + 49297) * 233280;
+  return x - Math.floor(x);
+};
+
+// Map balance to a coin count. The pile fills completely at 30 points;
+// below that it scales down proportionally so progress still reads clearly.
+const FULL_PILE_BALANCE = 30;
+const MAX_COINS = 60;
+const coinCountForBalance = (balance) => {
+  if (balance <= 0) return 0;
+  const ratio = Math.min(1, balance / FULL_PILE_BALANCE);
+  return Math.max(1, Math.round(ratio * MAX_COINS));
+};
+
+// Build a mound layout: rows stacked bottom-to-top, each row narrower
+// than the one below, with light per-coin jitter for a natural look.
+// Tuned so MAX_COINS forms a compact pyramid that fits the canvas.
+const buildPileLayout = (count) => {
+  const coins = [];
+  const rowHeight = 6;
+  const colSpacing = 6;
+  let row = 0;
+  let placed = 0;
+  while (placed < count) {
+    const rowCapacity = Math.max(5, 15 - row * 2);
+    const inThisRow = Math.min(rowCapacity, count - placed);
+    const rowWidth = inThisRow * colSpacing;
+    const startX = 50 - rowWidth / 2;
+    for (let i = 0; i < inThisRow; i++) {
+      const seed = placed;
+      const jitterX = (seededRandom(seed) - 0.5) * 2.5;
+      const jitterY = (seededRandom(seed + 100) - 0.5) * 1.5;
+      coins.push({
+        id: seed,
+        x: startX + i * colSpacing + colSpacing / 2 + jitterX,
+        y: 80 - row * rowHeight + jitterY,
+        rot: (seededRandom(seed + 200) - 0.5) * 18,
+        shade: seededRandom(seed + 300) > 0.5 ? "#F2A93B" : "#E0982E",
+      });
+      placed++;
+    }
+    row++;
+  }
+  return coins;
+};
+
+function GoldPile({ balance }) {
+  const count = coinCountForBalance(balance);
+  const layout = buildPileLayout(count);
+  const prevCountRef = useRef(count);
+  const [newCoinIds, setNewCoinIds] = useState([]);
+
+  useEffect(() => {
+    if (count > prevCountRef.current) {
+      const added = [];
+      for (let i = prevCountRef.current; i < count; i++) added.push(i);
+      setNewCoinIds(added);
+      const t = setTimeout(() => setNewCoinIds([]), 500);
+      prevCountRef.current = count;
+      return () => clearTimeout(t);
+    }
+    prevCountRef.current = count;
+  }, [count]);
+
+  if (balance <= 0) {
+    return (
+      <div className="text-xs text-[#5c5d78] text-center py-3 italic">
+        Your stash is empty — complete a goal to start earning gold.
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full" style={{ height: 110 }}>
+      <svg viewBox="0 0 100 90" className="w-full h-full" preserveAspectRatio="xMidYMax meet">
+        <ellipse cx="50" cy="84" rx="38" ry="5" fill="#000" opacity="0.25" />
+        {layout.map((c) => (
+          <g
+            key={c.id}
+            transform={`translate(${c.x} ${c.y}) rotate(${c.rot})`}
+            style={newCoinIds.includes(c.id) ? { transformOrigin: "center", animation: "coinDrop 0.45s ease-out" } : undefined}
+          >
+            <ellipse cx="0" cy="0" rx="4.6" ry="3.2" fill={c.shade} stroke="#1A1B26" strokeWidth="0.5" />
+            <ellipse cx="0" cy="-0.4" rx="3" ry="2" fill="none" stroke="#1A1B26" strokeWidth="0.4" opacity="0.45" />
+            <circle cx="-1.1" cy="-1.1" r="0.7" fill="#FFE9B8" opacity="0.6" />
+          </g>
+        ))}
+      </svg>
+      <style>{`
+        @keyframes coinDrop {
+          0% { transform: translateY(-26px) scale(0.4) rotate(0deg); opacity: 0; }
+          60% { opacity: 1; }
+          100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ---------- Settings View ----------
+function SettingsView({ settings, onChange }) {
+  return (
+    <div className="flex flex-col gap-3 pt-2">
+      <div className="text-[11px] uppercase tracking-[0.16em] text-[#8B8A9E] font-semibold mb-1">
+        Visible goal types
+      </div>
+      <div className="bg-[#23243A] border border-[#33344a] rounded-2xl divide-y divide-[#33344a]">
+        <SettingRow
+          title="Weekly goals"
+          subtitle="Show goals set to a weekly or daily cadence"
+          checked={settings.showWeekly}
+          onToggle={() => onChange({ showWeekly: !settings.showWeekly })}
+        />
+        <SettingRow
+          title="Monthly goals"
+          subtitle="Show goals set to a monthly cadence"
+          checked={settings.showMonthly}
+          onToggle={() => onChange({ showMonthly: !settings.showMonthly })}
+        />
+        <SettingRow
+          title="Yearly goals"
+          subtitle="Show goals set to a yearly cadence"
+          checked={settings.showYearly}
+          onToggle={() => onChange({ showYearly: !settings.showYearly })}
+        />
+      </div>
+      <div className="text-xs text-[#5c5d78] leading-relaxed px-1 mt-1 mb-2">
+        Hidden goal types stay saved with all their progress and streaks — turning them back on brings everything right back.
+      </div>
+
+      <div className="text-[11px] uppercase tracking-[0.16em] text-[#8B8A9E] font-semibold mb-1">
+        Reward categories
+      </div>
+      <div className="bg-[#23243A] border border-[#33344a] rounded-2xl p-4 flex flex-col gap-3">
+        {REWARD_CATEGORY_KEYS.map((key) => (
+          <CategoryNameField
+            key={key}
+            value={settings.categoryNames[key] ?? DEFAULT_CATEGORY_NAMES[key]}
+            onCommit={(newName) => {
+              const trimmed = newName.trim();
+              onChange({
+                categoryNames: {
+                  ...settings.categoryNames,
+                  [key]: trimmed.length > 0 ? trimmed : DEFAULT_CATEGORY_NAMES[key],
+                },
+              });
+            }}
+          />
+        ))}
+      </div>
+      <div className="text-xs text-[#5c5d78] leading-relaxed px-1 mt-1">
+        Renaming a category updates it everywhere — existing rewards keep their category, just under the new name.
+      </div>
+    </div>
+  );
+}
+
+function CategoryNameField({ value, onCommit }) {
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  return (
+    <input
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => onCommit(draft)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+      }}
+      style={{
+        background: "#1A1B26",
+        border: "1px solid #33344a",
+        borderRadius: 10,
+        padding: "10px 12px",
+        fontSize: 14,
+        color: "#E8E6E1",
+        outline: "none",
+        width: "100%",
+      }}
+    />
+  );
+}
+
+function SettingRow({ title, subtitle, checked, onToggle }) {
+  return (
+    <div className="flex items-center justify-between gap-3 p-4">
+      <div className="min-w-0">
+        <div className="font-bold text-sm">{title}</div>
+        <div className="text-[11px] text-[#8B8A9E] font-medium mt-0.5">{subtitle}</div>
+      </div>
+      <button
+        onClick={onToggle}
+        role="switch"
+        aria-checked={checked}
+        className="flex-shrink-0 relative w-11 h-6 rounded-full transition-colors"
+        style={{ background: checked ? "#F2A93B" : "#1A1B26", border: "1px solid #33344a" }}
+      >
+        <span
+          className="absolute top-0.5 left-0.5 rounded-full bg-white transition-transform"
+          style={{
+            width: 18,
+            height: 18,
+            transform: checked ? "translateX(20px)" : "translateX(0)",
+            background: checked ? "#1A1B26" : "#5c5d78",
+          }}
+        />
+      </button>
+    </div>
+  );
+}
+
+// ---------- Badge Shelf ----------
+function BadgeShelf({ unlockedBadges }) {
+  const [activeBadgeId, setActiveBadgeId] = useState(null);
+  const activeBadge = BADGE_DEFINITIONS.find((b) => b.id === activeBadgeId);
+  const unlockedCount = BADGE_DEFINITIONS.filter((b) => unlockedBadges.includes(b.id)).length;
+
+  return (
+    <div className="bg-[#23243A] border border-[#33344a] rounded-2xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[11px] uppercase tracking-[0.16em] text-[#8B8A9E] font-semibold">Badges</span>
+        <span className="text-[11px] text-[#5c5d78] font-medium tabular-nums">
+          {unlockedCount} / {BADGE_DEFINITIONS.length}
+        </span>
+      </div>
+      <div className="flex gap-2.5 flex-wrap">
+        {BADGE_DEFINITIONS.map((b) => {
+          const unlocked = unlockedBadges.includes(b.id);
+          const Icon = BADGE_ICONS[b.icon] ?? Star;
+          return (
+            <button
+              key={b.id}
+              onClick={() => setActiveBadgeId(b.id)}
+              className="w-12 h-12 rounded-xl flex items-center justify-center transition-transform"
+              style={{
+                background: unlocked ? "linear-gradient(135deg, #F2A93B33, #F2A93B11)" : "#1A1B26",
+                border: `1px solid ${unlocked ? "#F2A93B66" : "#33344a"}`,
+                boxShadow: unlocked ? "0 0 10px rgba(242,169,59,0.3)" : "none",
+              }}
+            >
+              <Icon size={20} color={unlocked ? "#F2A93B" : "#3f4060"} strokeWidth={unlocked ? 2 : 1.5} />
+            </button>
+          );
+        })}
+      </div>
+
+      {activeBadge && (
+        <div className="mt-3 pt-3 border-t border-[#33344a] flex items-start justify-between gap-2">
+          <div>
+            <div className="font-bold text-sm flex items-center gap-1.5">
+              {activeBadge.name}
+              {!unlockedBadges.includes(activeBadge.id) && (
+                <span className="text-[10px] text-[#5c5d78] font-medium uppercase tracking-wide">Locked</span>
+              )}
+            </div>
+            <div className="text-xs text-[#8B8A9E] mt-0.5">{activeBadge.description}</div>
+          </div>
+          <button onClick={() => setActiveBadgeId(null)} className="text-[#5c5d78] hover:text-[#E8E6E1] p-1 flex-shrink-0">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- Recap View ----------
+// Groups recap entries into week-batches. Entries that ended within
+// ~2 days of each other are treated as the same week's rollover, since
+// goals created at slightly different times will roll over at slightly
+// different moments even though they conceptually belong to the same week.
+const groupIntoWeeks = (weeklyEntries) => {
+  const sorted = [...weeklyEntries].sort((a, b) => b.endedAt - a.endedAt);
+  const batches = [];
+  const clusterWindow = 2 * 24 * 60 * 60 * 1000;
+
+  sorted.forEach((entry) => {
+    const batch = batches.find((b) => Math.abs(b.anchor - entry.endedAt) <= clusterWindow);
+    if (batch) {
+      batch.entries.push(entry);
+      batch.anchor = Math.max(batch.anchor, entry.endedAt);
+    } else {
+      batches.push({ anchor: entry.endedAt, entries: [entry] });
+    }
+  });
+
+  return batches.map((b) => ({
+    id: `week-${b.anchor}`,
+    endedAt: b.anchor,
+    entries: b.entries.sort((a, c) => c.endedAt - a.endedAt),
+  }));
+};
+
+const formatWeekLabel = (endedAt) => {
+  const date = new Date(endedAt);
+  return `Week of ${date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+};
+
+function RecapView({ goals, recapHistory }) {
+  const [expandedWeekId, setExpandedWeekId] = useState(null);
+
+  // "this week so far" — live view of current weekly/daily goal progress
+  const weeklyGoalsNow = goals.filter((g) => g.cadence === "this week" || g.cadence === "today");
+  const doneNow = weeklyGoalsNow.filter((g) => g.progress >= g.target).length;
+
+  // past completed weeks, most recent first
+  const weeklyEntries = recapHistory.filter((e) => e.cadence === "this week" || e.cadence === "today");
+  const pastWeeks = groupIntoWeeks(weeklyEntries).sort((a, b) => b.endedAt - a.endedAt);
+
+  return (
+    <div className="flex flex-col gap-4 pt-2">
+      <div className="bg-[#23243A] border border-[#33344a] rounded-2xl p-4">
+        <div className="text-[11px] uppercase tracking-[0.16em] text-[#8B8A9E] font-semibold mb-2">
+          This week so far
+        </div>
+        {weeklyGoalsNow.length === 0 ? (
+          <div className="text-sm text-[#8B8A9E]">No weekly or daily goals set right now.</div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-2xl font-extrabold" style={{ fontFamily: "'Archivo Black', sans-serif", color: "#F2A93B" }}>
+                {doneNow}/{weeklyGoalsNow.length}
+              </span>
+              <span className="text-xs text-[#8B8A9E] font-medium">goals complete</span>
+            </div>
+            <div className="relative h-3 bg-[#1A1B26] rounded-full overflow-hidden border border-[#33344a]">
+              <div
+                className="bar-fill h-full rounded-full"
+                style={{
+                  width: `${Math.round((doneNow / weeklyGoalsNow.length) * 100)}%`,
+                  background: "linear-gradient(90deg, #F2A93B99, #F2A93B)",
+                }}
+              />
+            </div>
+          </>
+        )}
+      </div>
+
+      <div>
+        <div className="text-[11px] uppercase tracking-[0.16em] text-[#8B8A9E] font-semibold mb-2 px-1">
+          Past weeks
+        </div>
+        {pastWeeks.length === 0 ? (
+          <EmptyState
+            title="No completed weeks yet"
+            subtitle="Once a weekly goal's cycle finishes, its recap will show up here."
+          />
+        ) : (
+          <div className="flex flex-col gap-3">
+            {pastWeeks.map((week) => (
+              <WeekRecapTile
+                key={week.id}
+                week={week}
+                expanded={expandedWeekId === week.id}
+                onToggle={() => setExpandedWeekId(expandedWeekId === week.id ? null : week.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function WeekRecapTile({ week, expanded, onToggle }) {
+  const { entries } = week;
+  const met = entries.filter((e) => e.met).length;
+  const points = entries.reduce((sum, e) => sum + e.pointsEarned + e.bonusPoints, 0);
+  const bonuses = entries.filter((e) => e.bonusPoints > 0 || e.bonusLabel);
+
+  return (
+    <div className="bg-[#23243A] border border-[#33344a] rounded-2xl overflow-hidden">
+      <button onClick={onToggle} className="w-full flex items-center gap-4 p-4 text-left">
+        <div className="flex-1">
+          <div className="text-[11px] text-[#8B8A9E] font-semibold uppercase tracking-wide mb-1">
+            {formatWeekLabel(week.endedAt)}
+          </div>
+          <div className="text-xl font-extrabold" style={{ fontFamily: "'Archivo Black', sans-serif" }}>
+            {met}/{entries.length} <span className="text-xs text-[#8B8A9E] font-semibold">goals</span>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-xl font-extrabold tabular-nums" style={{ fontFamily: "'Archivo Black', sans-serif", color: "#F2A93B" }}>
+            +{points}
+          </div>
+          <div className="text-[11px] text-[#8B8A9E] font-medium">points</div>
+        </div>
+        <span
+          className="text-[#5c5d78] transition-transform flex-shrink-0"
+          style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
+        >
+          ▾
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-[#33344a] p-4 pt-3 flex flex-col gap-3">
+          {bonuses.length > 0 && (
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.14em] text-[#8B8A9E] font-semibold mb-2 flex items-center gap-1.5">
+                <Flame size={12} color="#F2A93B" /> Streak bonuses hit
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {bonuses.map((e) => (
+                  <div key={e.id} className="flex items-center justify-between text-xs">
+                    <span className="text-[#E8E6E1]">
+                      {e.goalName}{e.bonusLabel ? ` — "${e.bonusLabel}"` : ""}
+                    </span>
+                    {e.bonusPoints > 0 && <span className="text-[#F2A93B] font-bold tabular-nums">+{e.bonusPoints}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1.5">
+            {entries.map((e) => (
+              <div key={e.id} className="flex items-center justify-between gap-3 py-1.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  {e.met ? (
+                    <Check size={15} color="#5FB3A3" strokeWidth={3} />
+                  ) : (
+                    <X size={15} color="#5c5d78" strokeWidth={2.5} />
+                  )}
+                  <span className="text-sm font-semibold truncate">{e.goalName}</span>
+                </div>
+                <span className="text-[11px] text-[#8B8A9E] font-medium tabular-nums flex-shrink-0">
+                  {e.met ? `+${e.pointsEarned + e.bonusPoints} pts` : "missed"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- Rewards View ----------
+function RewardsView({ balance, rewards, history, categoryNames, unlockedBadges, onRedeem, onDelete, onEdit, onMove, onAddClick }) {
+  // group rewards by category key, preserving a sensible fixed order, with an
+  // "Uncategorized" bucket for any reward that predates this feature.
+  // Within a group, items keep their array order so manual reordering sticks.
+  const grouped = REWARD_CATEGORY_KEYS.map((key) => ({
+    key,
+    label: categoryNames[key] ?? DEFAULT_CATEGORY_NAMES[key],
+    items: rewards.filter((r) => r.category === key),
+  })).filter((g) => g.items.length > 0);
+
+  const uncategorized = rewards.filter((r) => !REWARD_CATEGORY_KEYS.includes(r.category));
+  if (uncategorized.length > 0) grouped.push({ key: "uncategorized", label: "Uncategorized", items: uncategorized });
+
+  return (
+    <div className="flex flex-col gap-4 pt-2">
+      <div className="bg-gradient-to-br from-[#2a2b44] to-[#23243A] border border-[#33344a] rounded-2xl p-5 mb-1">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.16em] text-[#8B8A9E] font-semibold">Balance</div>
+            <div className="text-3xl font-extrabold mt-0.5" style={{ fontFamily: "'Archivo Black', sans-serif", color: "#F2A93B" }}>
+              {balance} <span className="text-base text-[#8B8A9E] font-semibold">pts</span>
+            </div>
+          </div>
+          <Trophy size={36} color="#F2A93B" strokeWidth={1.5} />
+        </div>
+        <GoldPile balance={balance} />
+      </div>
+
+      <BadgeShelf unlockedBadges={unlockedBadges} />
+
+      {rewards.length === 0 && (
+        <EmptyState title="No rewards set" subtitle="Add something you'll actually want — a treat, a break, an upgrade." />
+      )}
+
+      {grouped.map((group) => {
+        const groupIds = group.items.map((r) => r.id);
+        return (
+          <div key={group.key} className="flex flex-col gap-2.5">
+            <div className="flex items-center gap-2 px-1">
+              <span className="text-[11px] uppercase tracking-[0.16em] text-[#8B8A9E] font-semibold">{group.label}</span>
+              <span className="text-[10px] text-[#5c5d78] font-medium">({group.items.length})</span>
+            </div>
+            {group.items.map((r, idx) => (
+              <RewardCard
+                key={r.id}
+                reward={r}
+                balance={balance}
+                onRedeem={onRedeem}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onMoveUp={idx > 0 ? () => onMove(r.id, "up", groupIds) : null}
+                onMoveDown={idx < group.items.length - 1 ? () => onMove(r.id, "down", groupIds) : null}
+              />
+            ))}
+          </div>
+        );
+      })}
+
+      <button
+        onClick={onAddClick}
+        className="mt-1 flex items-center justify-center gap-2 border border-dashed border-[#3a3c5c] rounded-2xl py-4 text-sm font-semibold text-[#8B8A9E] hover:text-[#E8E6E1] hover:border-[#F2A93B] transition-colors"
+      >
+        <Plus size={16} />
+        New reward
+      </button>
+
+      {history.length > 0 && (
+        <div className="mt-4">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-[#8B8A9E] font-semibold mb-2 flex items-center gap-1.5">
+            <Flame size={12} /> Redeemed recently
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {history.slice(0, 6).map((h) => (
+              <div key={h.id} className="flex items-center justify-between text-xs text-[#8B8A9E] px-1">
+                <span>{h.name}</span>
+                <span className="tabular-nums">-{h.cost} pts</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RewardCard({ reward, balance, onRedeem, onEdit, onDelete, onMoveUp, onMoveDown }) {
+  const affordable = balance >= reward.cost;
+  const pct = Math.min(100, Math.round((balance / reward.cost) * 100));
+
+  return (
+    <div className="flex gap-1.5 anim-pop">
+      <div className="flex flex-col gap-0.5 justify-center flex-shrink-0">
+        <button
+          onClick={onMoveUp}
+          disabled={!onMoveUp}
+          className="w-6 h-6 flex items-center justify-center rounded-md text-[#5c5d78] disabled:opacity-20 hover:text-[#F2A93B] transition-colors"
+        >
+          <ChevronUp size={15} />
+        </button>
+        <button
+          onClick={onMoveDown}
+          disabled={!onMoveDown}
+          className="w-6 h-6 flex items-center justify-center rounded-md text-[#5c5d78] disabled:opacity-20 hover:text-[#F2A93B] transition-colors"
+        >
+          <ChevronDown size={15} />
+        </button>
+      </div>
+
+      <div className="flex-1 bg-[#23243A] border border-[#33344a] rounded-2xl p-4">
+      <div className="flex items-start justify-between mb-3">
+        <div className="min-w-0">
+          <div className="font-bold text-sm">{reward.name}</div>
+          <div className="text-[11px] text-[#8B8A9E] font-medium mt-0.5">{reward.cost} pts</div>
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button onClick={() => onEdit(reward)} className="text-[#5c5d78] hover:text-[#F2A93B] p-1 transition-colors">
+            <Pencil size={13} />
+          </button>
+          <button onClick={() => onDelete(reward.id)} className="text-[#5c5d78] hover:text-[#D97B6C] p-1 transition-colors">
+            <X size={14} />
+          </button>
+        </div>
+      </div>
+
+      {!affordable && (
+        <div className="relative h-3 bg-[#1A1B26] rounded-full overflow-hidden border border-[#33344a] mb-2">
+          <div
+            className="bar-fill h-full rounded-full"
+            style={{
+              width: `${pct}%`,
+              background: "linear-gradient(90deg, #5FB3A399, #5FB3A3)",
+              boxShadow: pct > 0 ? "0 0 8px rgba(95,179,163,0.45)" : "none",
+            }}
+          />
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-2">
+        {!affordable && (
+          <span className="text-[11px] text-[#8B8A9E] font-medium tabular-nums">
+            {balance} / {reward.cost} pts saved
+          </span>
+        )}
+        <button
+          onClick={() => onRedeem(reward)}
+          disabled={!affordable}
+          className="px-3.5 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-30 ml-auto"
+          style={{ background: affordable ? "#5FB3A3" : "#1A1B26", color: affordable ? "#1A1B26" : "#8B8A9E" }}
+        >
+          {affordable ? "Redeem" : "Not enough yet"}
+        </button>
+      </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Empty State ----------
+function EmptyState({ title, subtitle }) {
+  return (
+    <div className="border border-[#33344a] rounded-2xl p-8 text-center">
+      <div className="font-bold text-base mb-1">{title}</div>
+      <div className="text-sm text-[#8B8A9E] leading-relaxed">{subtitle}</div>
+    </div>
+  );
+}
+
+// ---------- Goal Modal (create + edit) ----------
+function GoalModal({ initial, onSave, onClose }) {
+  const isEdit = !!initial;
+  const [name, setName] = useState(initial?.name ?? "");
+  const [target, setTarget] = useState(initial?.target ?? 5);
+  const [points, setPoints] = useState(initial?.points ?? 5);
+  const [cadence, setCadence] = useState(initial?.cadence ?? "this week");
+  const [color, setColor] = useState(initial?.color ?? 0);
+  const [tiers, setTiers] = useState(initial?.tiers ?? []);
+
+  const canSave = name.trim().length > 0 && target > 0 && points > 0;
+
+  const cadenceUnit = { today: "day", "this week": "week", "this month": "month", "this year": "year" }[cadence] ?? "week";
+
+  const addTier = () => {
+    setTiers((ts) => [...ts, { id: uid(), streakLength: (ts[ts.length - 1]?.streakLength ?? 0) + 4, bonusPoints: 10, rewardName: "" }]);
+  };
+  const updateTier = (id, patch) => {
+    setTiers((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+  };
+  const removeTier = (id) => {
+    setTiers((ts) => ts.filter((t) => t.id !== id));
+  };
+
+  return (
+    <Modal onClose={onClose} title={isEdit ? "Edit goal" : "New goal"}>
+      <Field label="Goal name">
+        <input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Workout, Floss every night, Read 20 pages"
+          className="modal-input"
+        />
+      </Field>
+      <div className="flex gap-3">
+        <Field label="Target count" className="flex-1">
+          <input
+            type="number"
+            min={1}
+            value={target}
+            onChange={(e) => setTarget(Math.max(1, Number(e.target.value)))}
+            className="modal-input"
+          />
+        </Field>
+        <Field label="Cadence" className="flex-1">
+          <select value={cadence} onChange={(e) => setCadence(e.target.value)} className="modal-input">
+            <option value="this week">this week</option>
+            <option value="this month">this month</option>
+            <option value="this year">this year</option>
+            <option value="today">today</option>
+          </select>
+        </Field>
+      </div>
+      <Field label="Points on completion">
+        <input
+          type="number"
+          min={1}
+          value={points}
+          onChange={(e) => setPoints(Math.max(1, Number(e.target.value)))}
+          className="modal-input"
+        />
+      </Field>
+      <Field label="Color">
+        <div className="flex gap-2 flex-wrap">
+          {COLORS.map((c, i) => (
+            <button
+              key={c.name}
+              onClick={() => setColor(i)}
+              aria-label={c.name}
+              className="w-8 h-8 rounded-full border-2 transition-transform"
+              style={{ background: c.bar, borderColor: color === i ? "#E8E6E1" : "transparent", transform: color === i ? "scale(1.1)" : "scale(1)" }}
+            />
+          ))}
+        </div>
+      </Field>
+
+      <Field label="Streak bonuses">
+        <div className="flex flex-col gap-2.5">
+          {tiers.length === 0 && (
+            <div className="text-xs text-[#8B8A9E] leading-relaxed">
+              Hit this goal every {cadenceUnit} in a row to earn a bonus. None set yet.
+            </div>
+          )}
+          {tiers
+            .slice()
+            .sort((a, b) => a.streakLength - b.streakLength)
+            .map((t) => (
+              <div key={t.id} className="bg-[#1A1B26] border border-[#33344a] rounded-xl p-3 flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <Flame size={13} color="#F2A93B" className="flex-shrink-0" />
+                  <span className="text-xs text-[#8B8A9E] font-medium whitespace-nowrap">Hit it</span>
+                  <input
+                    type="number"
+                    min={2}
+                    value={t.streakLength}
+                    onChange={(e) => updateTier(t.id, { streakLength: Math.max(2, Number(e.target.value)) })}
+                    className="modal-input-sm w-14"
+                  />
+                  <span className="text-xs text-[#8B8A9E] font-medium whitespace-nowrap">times in a row</span>
+                  <button onClick={() => removeTier(t.id)} className="ml-auto text-[#5c5d78] hover:text-[#D97B6C] p-0.5">
+                    <X size={13} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-[#8B8A9E] font-medium whitespace-nowrap">Bonus pts</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={t.bonusPoints}
+                    onChange={(e) => updateTier(t.id, { bonusPoints: Math.max(0, Number(e.target.value)) })}
+                    className="modal-input-sm w-16"
+                  />
+                  <span className="text-xs text-[#8B8A9E] font-medium whitespace-nowrap">Prize (optional)</span>
+                  <input
+                    value={t.rewardName}
+                    onChange={(e) => updateTier(t.id, { rewardName: e.target.value })}
+                    placeholder="Movie night"
+                    className="modal-input-sm flex-1 min-w-0"
+                  />
+                </div>
+              </div>
+            ))}
+          <button
+            onClick={addTier}
+            className="flex items-center justify-center gap-1.5 border border-dashed border-[#3a3c5c] rounded-lg py-2 text-xs font-semibold text-[#8B8A9E] hover:text-[#E8E6E1] hover:border-[#F2A93B] transition-colors"
+          >
+            <Plus size={13} />
+            Add streak bonus
+          </button>
+        </div>
+      </Field>
+
+      <button
+        disabled={!canSave}
+        onClick={() =>
+          onSave({
+            ...(isEdit ? { id: initial.id } : {}),
+            name: name.trim(),
+            target,
+            points,
+            cadence,
+            color,
+            tiers,
+          })
+        }
+        className="mt-1 w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40"
+        style={{ background: "#F2A93B", color: "#1A1B26" }}
+      >
+        {isEdit ? "Save changes" : "Create goal"}
+      </button>
+    </Modal>
+  );
+}
+
+
+// ---------- Reward Modal (create + edit) ----------
+function RewardModal({ initial, categoryNames, onSave, onClose }) {
+  const isEdit = !!initial;
+  const [name, setName] = useState(initial?.name ?? "");
+  const [cost, setCost] = useState(initial?.cost ?? 10);
+  const [category, setCategory] = useState(initial?.category ?? REWARD_CATEGORY_KEYS[0]);
+  const canSave = name.trim().length > 0 && cost > 0;
+
+  return (
+    <Modal onClose={onClose} title={isEdit ? "Edit reward" : "New reward"}>
+      <Field label="Reward name">
+        <input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Takeout night, New game"
+          className="modal-input"
+        />
+      </Field>
+      <Field label="Cost in points">
+        <input
+          type="number"
+          min={1}
+          value={cost}
+          onChange={(e) => setCost(Math.max(1, Number(e.target.value)))}
+          className="modal-input"
+        />
+      </Field>
+      <Field label="Category">
+        <select value={category} onChange={(e) => setCategory(e.target.value)} className="modal-input">
+          {REWARD_CATEGORY_KEYS.map((key) => (
+            <option key={key} value={key}>
+              {categoryNames[key] ?? DEFAULT_CATEGORY_NAMES[key]}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <button
+        disabled={!canSave}
+        onClick={() => onSave({ ...(isEdit ? { id: initial.id } : {}), name: name.trim(), cost, category })}
+        className="mt-1 w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40"
+        style={{ background: "#5FB3A3", color: "#1A1B26" }}
+      >
+        {isEdit ? "Save changes" : "Create reward"}
+      </button>
+    </Modal>
+  );
+}
+
+// ---------- Shared Modal / Field ----------
+function Modal({ title, children, onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" onClick={onClose}>
+      <div
+        className="bg-[#23243A] border border-[#3a3c5c] rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm p-6 anim-slideup"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <style>{`
+          .modal-input {
+            width: 100%;
+            background: #1A1B26;
+            border: 1px solid #33344a;
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 14px;
+            color: #E8E6E1;
+            outline: none;
+          }
+          .modal-input:focus { border-color: #F2A93B; }
+          .modal-input-sm {
+            background: #23243A;
+            border: 1px solid #33344a;
+            border-radius: 8px;
+            padding: 6px 8px;
+            font-size: 12px;
+            color: #E8E6E1;
+            outline: none;
+          }
+          .modal-input-sm:focus { border-color: #F2A93B; }
+        `}</style>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-bold text-lg">{title}</h2>
+          <button onClick={onClose} className="text-[#8B8A9E] hover:text-[#E8E6E1] p-1">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flex flex-col gap-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children, className = "" }) {
+  return (
+    <div className={className}>
+      <label className="block text-xs font-semibold text-[#8B8A9E] mb-1.5">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<GoalTracker />);
+</script>
+</body>
+</html>
