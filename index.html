@@ -14,10 +14,6 @@
 <!-- Home screen icon: a simple amber trophy mark on dark charcoal, inlined as a data URI so the app needs no external image file -->
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='36' fill='%231A1B26'/%3E%3Cg transform='translate(38,38) scale(4.4)' fill='none' stroke='%23F2A93B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9H4.5a2.5 2.5 0 010-5H6'/%3E%3Cpath d='M18 9h1.5a2.5 2.5 0 000-5H18'/%3E%3Cpath d='M4 22h16'/%3E%3Cpath d='M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22'/%3E%3Cpath d='M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22'/%3E%3Cpath d='M18 2H6v7a6 6 0 0012 0V2z'/%3E%3C/g%3E%3C/svg%3E" />
 
-<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
-<script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap" rel="stylesheet">
@@ -37,10 +33,56 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
   #root { min-height: 100vh; }
+  #boot-error {
+    display: none;
+    color: #F2A93B;
+    background: #1A1B26;
+    font-family: -apple-system, monospace;
+    font-size: 13px;
+    padding: 20px;
+    white-space: pre-wrap;
+    line-height: 1.5;
+  }
 </style>
 </head>
 <body>
 <div id="root"></div>
+<div id="boot-error"></div>
+
+<!-- Catches any error during script loading or React rendering and shows
+     it on screen instead of leaving a silent blank/gray page, since there's
+     no way to open dev tools on a phone to see what actually failed. -->
+<script>
+  window.addEventListener("error", function (e) {
+    var el = document.getElementById("boot-error");
+    if (el) {
+      el.style.display = "block";
+      el.textContent = "Something failed to load:\n\n" + (e.message || e.error) + "\n\nFile: " + (e.filename || "unknown") + " line " + (e.lineno || "?");
+    }
+  });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.25.6/babel.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+
+<script>
+  // Confirms the three core libraries actually loaded before handing off
+  // to the JSX script below — if any CDN script failed silently (blocked,
+  // offline, etc.) this shows a clear message instead of a blank screen.
+  window.addEventListener("DOMContentLoaded", function () {
+    var missing = [];
+    if (typeof React === "undefined") missing.push("React");
+    if (typeof ReactDOM === "undefined") missing.push("ReactDOM");
+    if (typeof Babel === "undefined") missing.push("Babel");
+    if (missing.length > 0) {
+      var el = document.getElementById("boot-error");
+      el.style.display = "block";
+      el.textContent = "Couldn't load: " + missing.join(", ") + "\n\nCheck your internet connection and reload. These load from a CDN the first time you open the app.";
+    }
+  });
+</script>
 
 <script type="text/babel" data-presets="react">
 // ---------- inline icons (replaces lucide-react import for standalone use) ----------
@@ -1920,8 +1962,35 @@ function Field({ label, children, className = "" }) {
   );
 }
 
+// Catches any error thrown while GoalTracker renders (a bad prop, a
+// missing field in old saved data, etc.) and shows it instead of leaving
+// a silent blank screen with no way to diagnose what happened.
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 20, color: "#F2A93B", background: "#1A1B26", fontFamily: "monospace", fontSize: 13, whiteSpace: "pre-wrap", minHeight: "100vh" }}>
+          {"The app hit an error while rendering:\n\n" + (this.state.error.message || String(this.state.error)) + "\n\n" + (this.state.error.stack || "")}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(<GoalTracker />);
+root.render(
+  <ErrorBoundary>
+    <GoalTracker />
+  </ErrorBoundary>
+);
 </script>
 </body>
 </html>
